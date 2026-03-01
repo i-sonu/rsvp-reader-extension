@@ -13,9 +13,12 @@ class RsvpController {
 
         this.overlay = overlay;
         this.wordContainer = overlay.querySelector('#rsvp-word');
+        this.contextView = overlay.querySelector('#rsvp-context-view');
+        this.contextText = overlay.querySelector('#rsvp-context-text');
         this.progressBar = overlay.querySelector('#rsvp-progress-fill');
         this.wpmDisplay = overlay.querySelector('#rsvp-wpm');
         this.pauseIndicator = overlay.querySelector('#rsvp-pause-indicator');
+        this.wordWrapper = overlay.querySelector('#rsvp-word-wrapper');
 
         this.words = this.preprocess(text);
         this.delays = this.computeDelays(this.words);
@@ -234,6 +237,8 @@ class RsvpController {
             // When paused, render the word at the new position immediately
             this.index = newIndex;
             this.render(this.words[this.index]);
+            // Refresh context view with new position
+            this.showContextView();
         } else {
             // When playing, force-resolve current word to jump
             this.index = newIndex;
@@ -256,6 +261,166 @@ class RsvpController {
             this._resolveDisplay();
             this._resolveDisplay = null;
         }
+    }
+
+    // ── Show Context View (on pause) ──
+    showContextView() {
+        if (!this.contextView || !this.contextText) return;
+
+        const words = this.words;
+        const idx = this.index;
+        const underlineClass = this.settings.SHOW_ANCHOR_UNDERLINE ? ' rsvp-anchor-underline' : '';
+
+        // Show context view, hide single-word display
+        if (this.wordWrapper) this.wordWrapper.style.display = 'none';
+        this.contextView.style.display = 'block';
+        this.contextText.style.transform = '';
+        this.contextText.innerHTML = '';
+
+        // ── Measure character width (monospace font) ──
+        const measurer = document.createElement('span');
+        measurer.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;';
+        measurer.textContent = 'M';
+        this.contextText.appendChild(measurer);
+        void measurer.offsetWidth;
+        const charWidth = measurer.getBoundingClientRect().width;
+        measurer.remove();
+
+        // ── Layout constants ──
+        const screenWidth = window.innerWidth;
+        const PADDING = 20;
+        const availableWidth = screenWidth - PADDING * 2;
+        const screenCenterX = screenWidth / 2;
+        const spaceWidth = charWidth; // monospace: space = one character
+        const wordPx = (w) => w.length * charWidth;
+
+        // Line height from computed styles
+        const fontSize = parseFloat(getComputedStyle(this.contextText).fontSize);
+        const lineHeight = fontSize * 1.4; // matches CSS line-height: 1.4
+
+        // Word window: generous range around current index
+        const WINDOW = 120;
+        const winStart = Math.max(0, idx - WINDOW);
+        const winEnd = Math.min(words.length - 1, idx + WINDOW);
+
+        // ── Build the ACTIVE line (expand outward from current word) ──
+        // Position current word so its anchor character sits at screen center X
+        const anchorCharIdx = this.getAnchorIndex(words[idx]);
+        const anchorOffset = (anchorCharIdx + 0.5) * charWidth;
+        const currentWordLeft = screenCenterX - anchorOffset;
+        const currentWordRight = currentWordLeft + wordPx(words[idx]);
+
+        let activeLineIndices = [idx];
+        let leftEdge = currentWordLeft;
+        let rightEdge = currentWordRight;
+
+        // Expand left
+        for (let i = idx - 1; i >= winStart; i--) {
+            const newLeft = leftEdge - spaceWidth - wordPx(words[i]);
+            if (newLeft < PADDING) break;
+            activeLineIndices.unshift(i);
+            leftEdge = newLeft;
+        }
+
+        // Expand right
+        for (let i = idx + 1; i <= winEnd; i++) {
+            const newRight = rightEdge + spaceWidth + wordPx(words[i]);
+            if (newRight > screenWidth - PADDING) break;
+            activeLineIndices.push(i);
+            rightEdge = newRight;
+        }
+
+        // ── Build lines ABOVE (greedy pack, right-to-left from remaining words) ──
+        const linesAbove = [];
+        let cursor = activeLineIndices[0] - 1;
+        while (cursor >= winStart) {
+            const line = [];
+            let lineWidth = 0;
+            for (let w = cursor; w >= winStart; w--) {
+                const needed = line.length > 0 ? wordPx(words[w]) + spaceWidth : wordPx(words[w]);
+                if (lineWidth + needed > availableWidth) break;
+                line.unshift(w);
+                lineWidth += needed;
+            }
+            if (line.length === 0) break;
+            linesAbove.unshift(line);
+            cursor = line[0] - 1;
+        }
+
+        // ── Build lines BELOW (greedy pack, left-to-right from remaining words) ──
+        const linesBelow = [];
+        cursor = activeLineIndices[activeLineIndices.length - 1] + 1;
+        while (cursor <= winEnd) {
+            const line = [];
+            let lineWidth = 0;
+            for (; cursor <= winEnd; cursor++) {
+                const needed = line.length > 0 ? wordPx(words[cursor]) + spaceWidth : wordPx(words[cursor]);
+                if (lineWidth + needed > availableWidth) break;
+                line.push(cursor);
+                lineWidth += needed;
+            }
+            if (line.length === 0) break;
+            linesBelow.push(line);
+        }
+
+        // ── Assemble all lines ──
+        const allLines = [...linesAbove, activeLineIndices, ...linesBelow];
+        const activeLineNum = linesAbove.length;
+
+        // ── Vertical positioning: center the active line in the container ──
+        const containerHeight = this.contextView.getBoundingClientRect().height;
+        const centerY = containerHeight / 2;
+        const activeLineTop = centerY - lineHeight / 2;
+
+        // ── Render each line as an absolutely positioned div ──
+        let html = '';
+        for (let ln = 0; ln < allLines.length; ln++) {
+            const line = allLines[ln];
+            const top = activeLineTop + (ln - activeLineNum) * lineHeight;
+            const lineDistance = Math.abs(ln - activeLineNum);
+            const animDelay = lineDistance * 80; // 80ms cascade per line
+            const isActiveLine = ln === activeLineNum;
+            const isVisible = top >= -lineHeight && top <= containerHeight + lineHeight;
+
+            // Build word spans for this line
+            let lineHtml = '';
+            for (const wi of line) {
+                if (wi === idx) {
+                    // Active word: full brightness with anchor highlight
+                    const w = words[wi];
+                    const ai = this.getAnchorIndex(w);
+                    const before = this.escapeHtml(w.slice(0, ai));
+                    const anchor = this.escapeHtml(w.charAt(ai));
+                    const after = this.escapeHtml(w.slice(ai + 1));
+                    lineHtml += `<span class="rsvp-ctx-word rsvp-ctx-active rsvp-ctx-fadein" id="rsvp-ctx-active" style="--ctx-delay:0ms;">` +
+                        `<span class="rsvp-before">${before}</span>` +
+                        `<span class="rsvp-anchor${underlineClass}">${anchor}</span>` +
+                        `<span class="rsvp-after">${after}</span>` +
+                        `</span> `;
+                } else {
+                    const cls = isVisible ? 'rsvp-ctx-fadein' : 'rsvp-ctx-hidden';
+                    lineHtml += `<span class="rsvp-ctx-word ${cls}" style="--ctx-delay:${animDelay}ms;">${this.escapeHtml(words[wi])}</span> `;
+                }
+            }
+
+            // Active line: positioned at exact leftEdge so anchor stays at center
+            // Other lines: centered horizontally via text-align: center
+            if (isActiveLine) {
+                html += `<div class="rsvp-ctx-line" style="position:absolute;top:${top}px;left:${leftEdge}px;white-space:nowrap;line-height:${lineHeight}px;">${lineHtml}</div>`;
+            } else {
+                html += `<div class="rsvp-ctx-line" style="position:absolute;top:${top}px;left:0;right:0;text-align:center;white-space:nowrap;line-height:${lineHeight}px;">${lineHtml}</div>`;
+            }
+        }
+
+        this.contextText.innerHTML = html;
+    }
+
+    // ── Hide Context View (on resume) ──
+    hideContextView() {
+        if (!this.contextView) return;
+        this.contextView.style.display = 'none';
+        if (this.contextText) this.contextText.innerHTML = '';
+        if (this.wordWrapper) this.wordWrapper.style.display = 'flex';
     }
 
     // ── Show Completion State ──

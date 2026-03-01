@@ -107,6 +107,11 @@
         <div id="rsvp-word"></div>
       </div>
 
+      <!-- Context View (shown when paused) -->
+      <div id="rsvp-context-view" style="display: none;">
+        <div id="rsvp-context-text"></div>
+      </div>
+
       <div id="rsvp-pause-indicator">⏸ PAUSED</div>
 
       <div id="rsvp-controls-hint" style="display: none;">
@@ -358,7 +363,7 @@
             requestAnimationFrame(tick);
         }
 
-        themeBtn.addEventListener('click', async (e) => {
+        themeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             isDark = !isDark;
             if (isDark) {
@@ -369,8 +374,8 @@
                 sunIcon.style.display = 'block';
             }
             animateTheme(isDark);
-            // Persist the theme choice (used when mode is 'custom')
-            try { await chrome.storage.sync.set({ THEME_CUSTOM: isDark ? 'dark' : 'light' }); } catch (err) { console.error('RSVP: Failed to save theme:', err); }
+            // If custom mode, persist the theme choice
+            try { chrome.storage.sync.set({ THEME_CUSTOM: isDark ? 'dark' : 'light' }); } catch (e) { }
         });
 
         // ── Theme Mode Dropdown ──
@@ -396,17 +401,13 @@
         });
 
         modeOptions.forEach(opt => {
-            opt.addEventListener('click', async (e) => {
+            opt.addEventListener('click', (e) => {
                 e.stopPropagation();
                 currentMode = opt.dataset.mode;
                 updateModeChecks();
                 modeMenuOpen = false;
                 themeModeMenu.style.display = 'none';
-                try {
-                    await chrome.storage.sync.set({ THEME_MODE: currentMode });
-                } catch (err) {
-                    console.error('RSVP: Failed to save theme mode:', err);
-                }
+                try { chrome.storage.sync.set({ THEME_MODE: currentMode }); } catch (e) { }
             });
         });
 
@@ -485,6 +486,12 @@
                         beginReading();
                     } else if (state.activeController) {
                         state.activeController.togglePause();
+                        // Show or hide context view
+                        if (state.activeController.paused) {
+                            state.activeController.showContextView();
+                        } else {
+                            state.activeController.hideContextView();
+                        }
                     }
                     break;
                 case 'ArrowLeft':

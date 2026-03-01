@@ -67,6 +67,72 @@
   line-height: 1.4;
 }
 
+/* ── Context View (shown on pause) ── */
+#rsvp-context-view {
+  position: absolute;
+  top: 80px;
+  bottom: 60px;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#rsvp-context-text {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  font-size: min(9vw, 72px);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
+}
+
+/* All non-active context words start invisible */
+.rsvp-ctx-word {
+  display: inline;
+  opacity: 0;
+  color: rgba(232, 232, 232, 0.35);
+}
+
+/* Active word: full brightness (uses existing .rsvp-before .rsvp-anchor .rsvp-after) */
+.rsvp-ctx-active {
+  color: #e8e8e8;
+}
+
+/* Cascading fade-in: each word uses --ctx-delay custom property */
+@keyframes rsvp-ctx-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.rsvp-ctx-fadein {
+  animation: rsvp-ctx-in 0.35s ease forwards;
+  animation-delay: var(--ctx-delay, 0ms);
+}
+
+/* Words outside the viewport clipping area stay hidden */
+.rsvp-ctx-hidden {
+  opacity: 0 !important;
+  animation: none !important;
+}
+
+/* Light theme context overrides */
+#rsvp-overlay.rsvp-light .rsvp-ctx-word {
+  color: rgba(30, 30, 30, 0.3);
+}
+
+#rsvp-overlay.rsvp-light .rsvp-ctx-active {
+  color: #1e1e1e;
+}
+
+
 /* ── Anchor Character ── */
 .rsvp-anchor {
   color: #ff3333;
