@@ -1,14 +1,19 @@
 // ─── RSVP Reader — Core Algorithm (port of rsvp.py) ───
 // RsvpController: preprocess, compute weights/delays, display loop with anchor alignment.
 
-class RsvpController {
+window.RsvpController = class RsvpController {
     constructor(text, settings, overlay) {
         this.settings = Object.assign({
             WPM: 400,
             LENGTH_STRENGTH: 0.6,
             PUNCTUATION_BOOST: 1.5,
             ANCHOR_RATIO: 0.35,
-            SHOW_ANCHOR_UNDERLINE: false
+            SHOW_ANCHOR_UNDERLINE: false,
+            CONTEXT_ANIMATION: true,
+            FONT_SIZE: 72,
+            GRADUAL_RAMP: false,
+            RAMP_DURATION: 10,
+            FONT_FAMILY: 'default'
         }, settings);
 
         this.overlay = overlay;
@@ -20,12 +25,16 @@ class RsvpController {
         this.pauseIndicator = overlay.querySelector('#rsvp-pause-indicator');
         this.wordWrapper = overlay.querySelector('#rsvp-word-wrapper');
 
+        // Apply custom font size
+        this.overlay.style.setProperty('--rsvp-font-size', this.settings.FONT_SIZE + 'px');
+
         this.words = this.preprocess(text);
         this.delays = this.computeDelays(this.words);
 
         this.index = 0;
         this.stopped = false;
         this.paused = false;
+        this._readingStartTime = 0;  // set when start() is called
         this._rafId = null;
         this._resolveDisplay = null;
         this._pauseStartTime = 0;
@@ -49,16 +58,24 @@ class RsvpController {
 
         const rawWords = decoded.split(' ').filter(w => w.length > 0);
 
-        // Split hyphenated words: "high-rise" → ["high-", "rise"]
+        // Split on hyphens (-), em-dashes (—), and en-dashes (–):
+        // "high-rise" → ["high-", "rise"]
+        // "forgotten—the" → ["forgotten—", "the"]
         const words = [];
         for (const w of rawWords) {
-            if (w.includes('-') && w.length > 1 && w !== '-') {
-                const parts = w.split('-');
+            // Match any hyphen or dash character
+            const dashPattern = /[-\u2013\u2014]/;
+            if (dashPattern.test(w) && w.length > 1 && w !== '-' && w !== '\u2013' && w !== '\u2014') {
+                // Split on any dash, keeping the dash as a delimiter
+                const parts = w.split(/([-\u2013\u2014])/);
+                // parts alternates: [text, dash, text, dash, text, ...]
                 for (let i = 0; i < parts.length; i++) {
                     if (parts[i].length === 0) continue;
-                    // Keep hyphen attached to end of each part except the last
-                    if (i < parts.length - 1) {
-                        words.push(parts[i] + '-');
+                    if (dashPattern.test(parts[i])) {
+                        // It's a dash — attach it to the previous word if one exists
+                        if (words.length > 0) {
+                            words[words.length - 1] += parts[i];
+                        }
                     } else {
                         words.push(parts[i]);
                     }
@@ -106,6 +123,22 @@ class RsvpController {
         return delays;
     }
 
+    // Compute delay for a single word at a given WPM
+    computeWordDelay(word, wpm) {
+        const baseDelay = (1 / wpm) * 60; // seconds per word at this WPM
+        let factor = 1;
+
+        // Length factor (use median length of 5 as reference)
+        factor += this.settings.LENGTH_STRENGTH * ((word.length - 5) / 5);
+
+        // Punctuation boost
+        if (/[.,;:!?]$/.test(word)) {
+            factor *= this.settings.PUNCTUATION_BOOST;
+        }
+
+        return Math.max(0.02, baseDelay * Math.max(0.1, factor));
+    }
+
     // ── Anchor Index (exact port) ──
     getAnchorIndex(word) {
         return Math.min(word.length - 1, Math.max(0, Math.floor(word.length * this.settings.ANCHOR_RATIO)));
@@ -136,6 +169,14 @@ class RsvpController {
         // Reset transform BEFORE setting new content so measurement is from natural position
         this.wordContainer.style.transform = 'translateX(0)';
         this.wordContainer.innerHTML = wordHtml;
+
+        // RTL support
+        const rtlRe = /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0780-\u07BF\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+        if (rtlRe.test(word)) {
+            this.wordContainer.classList.add('rsvp-rtl');
+        } else {
+            this.wordContainer.classList.remove('rsvp-rtl');
+        }
 
         // Force synchronous reflow so the reset transform and new content are laid out
         void this.wordContainer.offsetWidth;
@@ -209,14 +250,35 @@ class RsvpController {
             return;
         }
 
+        this._readingStartTime = performance.now();
+        this._totalPausedTime = 0;
+
         for (; this.index < this.words.length && !this.stopped; this.index++) {
-            await this.displayWord(this.words[this.index], this.delays[this.index]);
+            let delay;
+
+            // Gradual WPM ramp-up: interpolate WPM from half → full over rampDuration
+            if (this.settings.GRADUAL_RAMP && this.settings.RAMP_DURATION > 0) {
+                const activeTime = (performance.now() - this._readingStartTime - this._totalPausedTime) / 1000;
+                const rampSec = this.settings.RAMP_DURATION;
+
+                if (activeTime < rampSec) {
+                    const fraction = activeTime / rampSec;
+                    const startWPM = Math.max(60, this.settings.WPM * 0.5);
+                    const currentWPM = startWPM + (this.settings.WPM - startWPM) * fraction;
+                    delay = this.computeWordDelay(this.words[this.index], currentWPM);
+                } else {
+                    delay = this.delays[this.index];
+                }
+            } else {
+                delay = this.delays[this.index];
+            }
+
+            await this.displayWord(this.words[this.index], delay);
         }
 
-        // Reading complete — show done state briefly, then cleanup
+        // Reading complete — show done state with restart option
         if (!this.stopped) {
             this.showComplete();
-            setTimeout(() => this.cleanup(), 1500);
         }
     }
 
@@ -250,6 +312,16 @@ class RsvpController {
         }
     }
 
+    // ── Seek To (direct index jump) ──
+    seekTo(newIndex) {
+        this.index = Math.max(0, Math.min(this.words.length - 1, newIndex));
+        // Update progress bar
+        if (this.progressBar && this.words.length > 0) {
+            const progress = ((this.index + 1) / this.words.length) * 100;
+            this.progressBar.style.width = `${progress}%`;
+        }
+    }
+
     // ── Stop ──
     stop() {
         this.stopped = true;
@@ -264,7 +336,7 @@ class RsvpController {
     }
 
     // ── Show Context View (on pause) ──
-    showContextView() {
+    showContextView(forceInstant = false) {
         if (!this.contextView || !this.contextText) return;
 
         const words = this.words;
@@ -384,6 +456,7 @@ class RsvpController {
 
             // Build word spans for this line
             let lineHtml = '';
+            const useAnim = this.settings.CONTEXT_ANIMATION !== false && !forceInstant;
             for (const wi of line) {
                 if (wi === idx) {
                     // Active word: full brightness with anchor highlight
@@ -392,14 +465,21 @@ class RsvpController {
                     const before = this.escapeHtml(w.slice(0, ai));
                     const anchor = this.escapeHtml(w.charAt(ai));
                     const after = this.escapeHtml(w.slice(ai + 1));
-                    lineHtml += `<span class="rsvp-ctx-word rsvp-ctx-active rsvp-ctx-fadein" id="rsvp-ctx-active" style="--ctx-delay:0ms;">` +
+                    const activeClass = useAnim ? 'rsvp-ctx-fadein' : 'rsvp-ctx-instant';
+                    lineHtml += `<span class="rsvp-ctx-word rsvp-ctx-active ${activeClass}" id="rsvp-ctx-active" style="--ctx-delay:0ms;">` +
                         `<span class="rsvp-before">${before}</span>` +
                         `<span class="rsvp-anchor${underlineClass}">${anchor}</span>` +
                         `<span class="rsvp-after">${after}</span>` +
                         `</span> `;
                 } else {
-                    const cls = isVisible ? 'rsvp-ctx-fadein' : 'rsvp-ctx-hidden';
-                    lineHtml += `<span class="rsvp-ctx-word ${cls}" style="--ctx-delay:${animDelay}ms;">${this.escapeHtml(words[wi])}</span> `;
+                    if (useAnim) {
+                        const cls = isVisible ? 'rsvp-ctx-fadein' : 'rsvp-ctx-hidden';
+                        lineHtml += `<span class="rsvp-ctx-word ${cls}" style="--ctx-delay:${animDelay}ms;">${this.escapeHtml(words[wi])}</span> `;
+                    } else {
+                        // No animation: show instantly
+                        const cls = isVisible ? 'rsvp-ctx-instant' : 'rsvp-ctx-hidden';
+                        lineHtml += `<span class="rsvp-ctx-word ${cls}">${this.escapeHtml(words[wi])}</span> `;
+                    }
                 }
             }
 
@@ -425,10 +505,59 @@ class RsvpController {
 
     // ── Show Completion State ──
     showComplete() {
+        this.paused = true;
+        if (this.pauseIndicator) this.pauseIndicator.style.opacity = '0';
+
+        // Hide context view if visible
+        this.hideContextView();
+
         if (this.wordContainer) {
             this.wordContainer.innerHTML = '<span class="rsvp-complete">✓ Done</span>';
             this.wordContainer.style.transform = 'translateX(0)';
         }
+
+        // Show restart button below
+        const existing = this.overlay.querySelector('#rsvp-restart-btn');
+        if (existing) existing.remove();
+
+        const restartBtn = document.createElement('button');
+        restartBtn.id = 'rsvp-restart-btn';
+        restartBtn.innerHTML = '↻ Restart';
+        this.overlay.appendChild(restartBtn);
+
+        // Dispatch custom event so content.js can wire up
+        this.overlay.dispatchEvent(new CustomEvent('rsvp-complete'));
+    }
+
+    // ── Restart Reading ──
+    async restart() {
+        // Stop current execution if any
+        if (!this.stopped) {
+            this.stop();
+            // yield briefly to let the old async start() loop exit
+            await new Promise(r => setTimeout(r, 0));
+        }
+
+        // Remove restart button
+        const btn = this.overlay.querySelector('#rsvp-restart-btn');
+        if (btn) btn.remove();
+
+        // Reset state
+        this.index = 0;
+        this.stopped = false;
+        this.paused = false;
+        this._readingStartTime = 0;
+        this._totalPausedTime = 0;
+        this._pauseStartTime = 0;
+
+        // Hide context view, show word
+        this.hideContextView();
+
+        // Update progress bar
+        if (this.progressBar) this.progressBar.style.width = '0%';
+
+        // Restart the reading loop
+        this.start();
     }
 
     // ── Update WPM Display ──
@@ -445,4 +574,4 @@ class RsvpController {
             this.overlay.parentNode.removeChild(this.overlay);
         }
     }
-}
+};

@@ -10,7 +10,7 @@
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
+  font-family: var(--rsvp-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace);
   color: #e8e8e8;
   overflow: hidden;
   user-select: none;
@@ -57,7 +57,7 @@
 }
 
 #rsvp-word {
-  font-size: min(9vw, 72px);
+  font-size: min(9vw, var(--rsvp-font-size, 72px));
   font-weight: 400;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -82,11 +82,11 @@
   position: relative;
   width: 100%;
   height: 100%;
-  font-size: min(9vw, 72px);
+  font-size: min(9vw, var(--rsvp-font-size, 72px));
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1.4;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
+  font-family: var(--rsvp-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace);
 }
 
 /* All non-active context words start invisible */
@@ -120,6 +120,12 @@
 /* Words outside the viewport clipping area stay hidden */
 .rsvp-ctx-hidden {
   opacity: 0 !important;
+  animation: none !important;
+}
+
+/* Instant display: no animation at all */
+.rsvp-ctx-instant {
+  opacity: 1 !important;
   animation: none !important;
 }
 
@@ -412,6 +418,58 @@
   cursor: help;
 }
 
+/* ── Number Input ── */
+.rsvp-number-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rsvp-number-input {
+  width: 56px;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e0e0e0;
+  font-size: 13px;
+  font-family: system-ui, -apple-system, sans-serif;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.15s ease;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.rsvp-number-input::-webkit-inner-spin-button,
+.rsvp-number-input::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+.rsvp-number-input:focus {
+  border-color: rgba(255, 51, 51, 0.5);
+}
+
+/* ── Select Dropdown ── */
+.rsvp-select {
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e0e0e0;
+  font-size: 13px;
+  font-family: system-ui, -apple-system, sans-serif;
+  outline: none;
+  cursor: pointer;
+  min-width: 120px;
+  transition: border-color 0.15s ease;
+  appearance: auto;
+}
+
+.rsvp-select:focus {
+  border-color: rgba(255, 51, 51, 0.5);
+}
+
 /* ── Reset Button ── */
 #rsvp-reset-btn {
   width: 100%;
@@ -650,6 +708,12 @@
   background: rgba(0, 0, 0, 0.12);
 }
 
+#rsvp-overlay.rsvp-light .rsvp-select {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #333;
+}
+
 #rsvp-overlay.rsvp-light .rsvp-complete {
   color: #16a34a;
 }
@@ -667,6 +731,200 @@
   background: rgba(0, 0, 0, 0.06);
   border-color: rgba(0, 0, 0, 0.12);
   color: rgba(0, 0, 0, 0.5);
+}
+
+/* ── Dynamic Theme (colors extracted from page) ── */
+#rsvp-overlay.rsvp-dynamic {
+  background: var(--dyn-bg) !important;
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-word,
+#rsvp-overlay.rsvp-dynamic .rsvp-before,
+#rsvp-overlay.rsvp-dynamic .rsvp-after {
+  color: var(--dyn-text) !important;
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-start-title {
+  color: var(--dyn-text) !important;
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-start-info {
+  color: var(--dyn-text-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-wpm {
+  color: var(--dyn-text-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-close,
+#rsvp-overlay.rsvp-dynamic #rsvp-menu-btn {
+  border-color: var(--dyn-border);
+  color: var(--dyn-text-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-menu-btn span {
+  background: var(--dyn-text-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-close:hover,
+#rsvp-overlay.rsvp-dynamic #rsvp-menu-btn:hover {
+  background: var(--dyn-hover);
+  color: var(--dyn-text);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-center-line,
+#rsvp-overlay.rsvp-dynamic #rsvp-center-line::after {
+  background: var(--dyn-accent);
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-anchor {
+  color: var(--dyn-accent) !important;
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-pause-indicator {
+  color: var(--dyn-text-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-controls-hint {
+  color: var(--dyn-text-muted);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-controls-hint span {
+  background: var(--dyn-hover);
+  border-color: var(--dyn-border);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-progress {
+  background: var(--dyn-hover);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-progress-fill {
+  background: linear-gradient(90deg, var(--dyn-accent), var(--dyn-accent));
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-progress-fill::after {
+  background: var(--dyn-accent);
+  box-shadow: none;
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-settings-panel {
+  background: var(--dyn-surface) !important;
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-settings-header {
+  color: var(--dyn-text);
+  border-bottom-color: var(--dyn-border);
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-setting-row label {
+  color: var(--dyn-text);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-settings-close {
+  color: var(--dyn-text-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-reset-btn {
+  background: var(--dyn-hover);
+  border-color: var(--dyn-border);
+  color: var(--dyn-text-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-theme-btn {
+  border-color: var(--dyn-border);
+  color: var(--dyn-text-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-theme-mode-btn {
+  color: var(--dyn-text-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-theme-mode-menu {
+  background: var(--dyn-surface);
+  border-color: var(--dyn-border);
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-theme-mode-option {
+  color: var(--dyn-text);
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-theme-mode-option:hover {
+  background: var(--dyn-hover);
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-setting-row input[type="range"] {
+  background: var(--dyn-hover);
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-toggle-track {
+  background: var(--dyn-hover);
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-toggle input:checked+.rsvp-toggle-track::before {
+  background: var(--dyn-accent);
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-complete {
+  color: var(--dyn-accent);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-start-btn {
+  background: var(--dyn-accent);
+  color: var(--dyn-bg);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-start-hint {
+  color: var(--dyn-text-muted);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-start-hint kbd {
+  background: var(--dyn-hover);
+  border-color: var(--dyn-border);
+  color: var(--dyn-text-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-ctx-word {
+  color: var(--dyn-ctx-dim);
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-ctx-active {
+  color: var(--dyn-ctx-active) !important;
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-number-input {
+  background: var(--dyn-hover);
+  border-color: var(--dyn-border);
+  color: var(--dyn-text);
+}
+
+/* Dynamic theme font — user's explicit choice overrides page font */
+#rsvp-overlay.rsvp-dynamic #rsvp-word,
+#rsvp-overlay.rsvp-dynamic .rsvp-before,
+#rsvp-overlay.rsvp-dynamic .rsvp-after {
+  font-family: var(--rsvp-font-family, var(--dyn-font, 'Inter', sans-serif));
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-context-text {
+  font-family: var(--rsvp-font-family, var(--dyn-font, 'Inter', sans-serif));
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-start-title {
+  font-family: var(--rsvp-font-family, var(--dyn-font, 'Inter', sans-serif));
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-pause-indicator {
+  font-family: var(--rsvp-font-family, var(--dyn-font, 'Inter', sans-serif));
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-settings-header,
+#rsvp-overlay.rsvp-dynamic .rsvp-setting-row label {
+  font-family: var(--rsvp-font-family, var(--dyn-font, 'Inter', sans-serif));
+}
+
+#rsvp-overlay.rsvp-dynamic .rsvp-select {
+  background: var(--dyn-hover);
+  border-color: var(--dyn-border);
+  color: var(--dyn-text);
 }
 
 /* ── Pause Indicator ── */
@@ -714,14 +972,59 @@
   width: 100%;
   height: 3px;
   background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  z-index: 5;
+  transition: height 0.15s ease;
+}
+
+/* Larger invisible hit area for easier clicking */
+#rsvp-progress::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+#rsvp-progress:hover,
+#rsvp-progress.rsvp-scrubbing {
+  height: 6px;
 }
 
 #rsvp-progress-fill {
+  position: relative;
   height: 100%;
   width: 0%;
   background: linear-gradient(90deg, #ff3333 0%, #ff6b3d 50%, #ff3333 100%);
   transition: width 0.15s linear;
   border-radius: 0 2px 2px 0;
+}
+
+/* Scrub handle circle */
+#rsvp-progress-fill::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%) scale(0);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ff3333;
+  box-shadow: 0 0 6px rgba(255, 51, 51, 0.5);
+  transition: transform 0.15s ease;
+  pointer-events: none;
+}
+
+#rsvp-progress:hover #rsvp-progress-fill::after,
+#rsvp-progress.rsvp-scrubbing #rsvp-progress-fill::after {
+  transform: translateY(-50%) scale(1);
+}
+
+/* Disable smooth width transition while scrubbing for instant feedback */
+#rsvp-progress.rsvp-scrubbing #rsvp-progress-fill {
+  transition: none;
 }
 
 /* ── Completion State ── */
@@ -731,6 +1034,44 @@
   font-weight: 600;
   font-family: system-ui, -apple-system, sans-serif;
   animation: rsvp-fade-in 0.4s ease;
+  margin-bottom: 20px;
+}
+
+#rsvp-restart-btn {
+  margin-top: 20px;
+  padding: 12px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 18px;
+  font-family: system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  animation: rsvp-fade-in 0.6s ease;
+}
+
+#rsvp-restart-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+#rsvp-overlay.rsvp-light #rsvp-restart-btn {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+#rsvp-overlay.rsvp-light #rsvp-restart-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+#rsvp-overlay.rsvp-dynamic #rsvp-restart-btn {
+  border-color: var(--dyn-border);
+  background: var(--dyn-hover);
+  color: var(--dyn-text);
+  font-family: var(--rsvp-font-family, var(--dyn-font, system-ui));
 }
 
 @keyframes rsvp-fade-in {
@@ -831,4 +1172,130 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Mini Reader — Floating Overlay Bar
+   ═══════════════════════════════════════════════════════════════ */
+
+#rsvp-mini-overlay {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 15, 15, 0.92);
+  border-radius: 14px;
+  padding: 24px 60px;
+  z-index: 999999;
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: rsvp-mini-slide-in 0.3s ease;
+  user-select: none;
+}
+
+@keyframes rsvp-mini-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Mini word display */
+.rsvp-mini-word {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Courier New', monospace;
+  white-space: nowrap;
+  color: #e8e8e8;
+}
+
+.rsvp-mini-word .rsvp-before {
+  text-align: right;
+  color: #e8e8e8;
+}
+
+.rsvp-mini-word .rsvp-anchor {
+  color: #ff3333;
+  font-weight: 700;
+}
+
+.rsvp-mini-word .rsvp-after {
+  text-align: left;
+  color: #e8e8e8;
+}
+
+/* Mini progress counter */
+#rsvp-mini-progress {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Page Highlight — Yellow word tracker
+   ═══════════════════════════════════════════════════════════════ */
+
+#rsvpPageHighlight {
+  position: absolute;
+  background: rgba(255, 235, 59, 0.5);
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 999998;
+  mix-blend-mode: multiply;
+  transition: all 0.05s ease;
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Pick Mode — Crosshair & red hover highlight
+   ═══════════════════════════════════════════════════════════════ */
+
+.rsvp-pick-mode,
+.rsvp-pick-mode * {
+  cursor: crosshair !important;
+}
+
+#rsvpPickHighlight {
+  position: absolute;
+  background: rgba(255, 68, 68, 0.25);
+  border: 2px solid #ff4444;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 999998;
+  transition: all 0.05s ease;
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RTL Support — for both full overlay and mini reader
+   ═══════════════════════════════════════════════════════════════ */
+
+.rsvp-rtl {
+  direction: rtl;
+}
+
+.rsvp-rtl .rsvp-before {
+  text-align: left !important;
+}
+
+.rsvp-rtl .rsvp-after {
+  text-align: right !important;
 }

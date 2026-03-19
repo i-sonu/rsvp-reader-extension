@@ -84,7 +84,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 icons_dir = os.path.join(script_dir, 'icons')
 os.makedirs(icons_dir, exist_ok=True)
 
-for size in [16, 48, 128]:
+for size in [16, 32, 48, 128]:
     pixels = draw_icon(size)
     png_data = create_png(size, size, pixels)
     path = os.path.join(icons_dir, f'icon{size}.png')
